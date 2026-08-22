@@ -136,4 +136,50 @@ def detect_hotspot_ip():
 #     3. Imprimir información en consola
 #     4. app.run(host='0.0.0.0', port=PORT, threaded=False)
 # =============================================================================
-# (Aquí irá el bloque if __name__ == "__main__")
+# =============================================================================
+#  BLOQUE 7: ARRANQUE Y PUESTA EN MARCHA (BOOTSTRAPPER)
+#  - if __name__ == "__main__":
+#     1. detect_hotspot_ip()
+#     2. Crear carpetas uploads y outbox
+#     3. Imprimir información en consola
+#     4. app.run(host='0.0.0.0', port=PORT, threaded=False)
+# =============================================================================
+
+# =============================================================================
+#  BLOQUE 7: ARRANQUE Y PUESTA EN MARCHA (BOOTSTRAPPER)
+#  - Función main() con toda la lógica de arranque.
+#  - if __name__ == "__main__": main()
+# =============================================================================
+
+def main():
+    """Función principal que orquesta el arranque del servidor."""
+    # 1. Detectar la IP del Hotspot
+    ip = detect_hotspot_ip()
+    
+    # 2. Crear las carpetas necesarias (si no existen)
+    try:
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        os.makedirs(OUTBOX_FOLDER, exist_ok=True)
+    except Exception as e:
+        print(f"❌ Error al crear las carpetas: {e}")
+        print("   Verifica que tienes permisos de escritura en el directorio.")
+        exit(1)
+    
+    # 3. Mostrar información en consola
+    print("=" * 60)
+    print("  🚀 SERVIDOR DE TRANSFERENCIA LIGERO (MVP)")
+    print("=" * 60)
+    print(f"🌐 Servidor listo en: http://{ip}:{PORT}")
+    print(f"📂 Archivos subidos se guardan en: {os.path.abspath(UPLOAD_FOLDER)}")
+    print(f"📤 Coloca archivos en: {os.path.abspath(OUTBOX_FOLDER)} para enviar al móvil")
+    print(f"📱 El móvil debe abrir la URL desde el navegador")
+    print(f"⏹️  Presiona Ctrl+C para detener el servidor")
+    print("=" * 60)
+    print("Esperando conexiones...")
+    
+    # 4. Lanzar el servidor Flask
+    app.run(host='0.0.0.0', port=PORT, debug=False, threaded=False)
+
+
+if __name__ == "__main__":
+    main()
