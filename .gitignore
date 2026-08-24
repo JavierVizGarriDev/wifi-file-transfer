@@ -1,4 +1,6 @@
 venv/
+uploads/
+outbox/
 __pycache__/
 *.pyc
 *.pyo

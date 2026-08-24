@@ -8,8 +8,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-
-from flask import Flask, request, jsonify, send_file, abort
+from flask import Flask, request, jsonify, send_file, abort, send_from_directory
 
 # Constantes de carpetas y puerto
 UPLOAD_FOLDER = "uploads"
@@ -26,8 +25,37 @@ app = Flask(__name__)
 #  - Función peek_queue()
 #  - Función pop_if_match(filename)
 # =============================================================================
-# (Aquí irán las funciones de cola)
+# Cola global de archivos pendientes de enviar
+push_queue = []
 
+def enqueue_file(filename, raw_data):
+    """
+    Añade un archivo a la cola de push.
+    """
+    push_queue.append({
+        'filename': filename,
+        'data': raw_data
+    })
+
+def peek_queue():
+    """
+    Devuelve el primer elemento de la cola sin eliminarlo.
+    Si la cola está vacía, devuelve None.
+    """
+    if not push_queue:
+        return None
+    return push_queue[0]
+
+def pop_if_match(filename):
+    """
+    Elimina y devuelve el primer elemento de la cola si su nombre coincide con 'filename'.
+    Si no coincide o la cola está vacía, devuelve None.
+    """
+    if not push_queue:
+        return None
+    if push_queue[0]['filename'] == filename:
+        return push_queue.pop(0)
+    return None
 
 
 # =============================================================================
@@ -99,50 +127,192 @@ def detect_hotspot_ip():
 #  - Función process_outbox()
 #    (Escanea outbox, lee archivos, los encola y los elimina del disco)
 # =============================================================================
-# (Aquí irá la función process_outbox)
+
+def process_outbox():
+    """
+    Escanea la carpeta OUTBOX_FOLDER en busca de archivos.
+    Por cada archivo encontrado:
+      - Lo lee en memoria (bytes)
+      - Lo encola usando enqueue_file()
+      - Lo elimina del disco
+    Esta función se ejecuta antes de cada petición HTTP.
+    """
+    # Verificar que la carpeta existe
+    if not os.path.exists(OUTBOX_FOLDER):
+        return  # Si no existe, no hacemos nada (ya se creará en el arranque)
+    
+    try:
+        # Listar todos los archivos en outbox
+        files = os.listdir(OUTBOX_FOLDER)
+        if not files:
+            return  # Carpeta vacía, salir
+        
+        for filename in files:
+            file_path = os.path.join(OUTBOX_FOLDER, filename)
+            
+            # Saltar directorios (por si acaso)
+            if os.path.isdir(file_path):
+                continue
+            
+            try:
+                # Leer el archivo completo en memoria
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                
+                # Encolar el archivo (usando el Bloque 1)
+                enqueue_file(filename, file_data)
+                
+                # Eliminar el archivo del disco (purga)
+                os.remove(file_path)
+                
+                # Log en consola (opcional, útil para depuración)
+                print(f"📤 Archivo '{filename}' encolado para envío ({len(file_data)} bytes)")
+                
+            except Exception as e:
+                # Si falla un archivo, lo dejamos en outbox y seguimos con los demás
+                print(f"⚠️ Error al procesar '{filename}': {e}")
+                continue
+                
+    except Exception as e:
+        # Error general al listar la carpeta
+        print(f"❌ Error al escanear outbox: {e}")
+
+# Registrar la función para que se ejecute ANTES de cada petición
+app.before_request(process_outbox)
+
 
 # =============================================================================
-#  BLOQUE 4: LA INTERFAZ DE USUARIO (FRONTEND EMBEBIDO)
-#  - Constante HTML_PAGE (string con HTML+CSS+JS)
+#  BLOQUE 4: LA INTERFAZ DE USUARIO (FRONTEND)
+#  - Carga el HTML desde un archivo externo para mantener el código limpio.
 # =============================================================================
-# (Aquí irá el string HTML_PAGE)
+
+def load_html_page():
+    """Carga el contenido del archivo templates/index.html."""
+    template_path = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"❌ Error: No se encontró el archivo {template_path}")
+        print("   Asegúrate de que existe la carpeta 'templates' y dentro el archivo 'index.html'.")
+        # Fallback: mensaje de error simple (para que el servidor no explote)
+        return "<h1>Error: No se encontró la página HTML.</h1>"
+    except Exception as e:
+        print(f"❌ Error al leer {template_path}: {e}")
+        return f"<h1>Error al cargar la página: {e}</h1>"
+
+# Cargar el HTML una sola vez al iniciar el servidor (o cada vez que se necesite)
+HTML_PAGE = load_html_page()
+
 
 # =============================================================================
 #  BLOQUE 5: CONTROLADORES DE RUTAS (PARTE 1 - RAÍZ Y SUBIDA)
 #  - @app.route('/') -> index()
 #  - @app.route('/upload', methods=['POST']) -> upload_file()
 # =============================================================================
-# (Aquí irán las funciones index y upload_file)
+
+@app.route('/')
+def index():
+    return send_from_directory('templates', 'index.html')
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """
+    Recibe un archivo desde el móvil y lo guarda en UPLOAD_FOLDER.
+    Si el nombre ya existe, añade un sufijo numérico (ej. archivo(1).ext).
+    """
+    # Verificar que se envió un archivo
+    if 'file' not in request.files:
+        return jsonify({'ok': False, 'error': 'No se envió ningún archivo'}), 400
+    
+    file = request.files['file']
+    
+    # Si el usuario no seleccionó archivo (nombre vacío)
+    if file.filename == '':
+        return jsonify({'ok': False, 'error': 'Nombre de archivo vacío'}), 400
+    
+    # Obtener el nombre original y limpiarlo (eliminar rutas)
+    original_filename = file.filename
+    # Por seguridad, extraemos solo el nombre base
+    safe_filename = os.path.basename(original_filename)
+    
+    # Construir la ruta de destino
+    base, ext = os.path.splitext(safe_filename)
+    dest_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+    counter = 1
+    
+    # Si ya existe, buscar un nombre alternativo
+    while os.path.exists(dest_path):
+        new_name = f"{base}({counter}){ext}"
+        dest_path = os.path.join(UPLOAD_FOLDER, new_name)
+        counter += 1
+    
+    try:
+        file.save(dest_path)
+        # Respuesta exitosa con el nombre final guardado
+        final_filename = os.path.basename(dest_path)
+        return jsonify({'ok': True, 'filename': final_filename})
+    except Exception as e:
+        # Error al guardar
+        return jsonify({'ok': False, 'error': f'Error al guardar: {str(e)}'}), 500
 
 # =============================================================================
 #  BLOQUE 6: CONTROLADORES DE RUTAS (PARTE 2 - POLLING Y PUSH)
 #  - @app.route('/poll') -> poll_queue()
 #  - @app.route('/download_push/<filename>') -> download_push(filename)
 # =============================================================================
-# (Aquí irán las funciones poll_queue y download_push)
+
+@app.route('/poll')
+def poll_queue():
+    """
+    Endpoint para que el móvil consulte si hay archivos pendientes.
+    Responde con JSON:
+      - Si no hay: {"pending": false}
+      - Si hay: {"pending": true, "filename": "archivo.txt", "size": 1234}
+    """
+    # Usar peek_queue() del Bloque 1 para ver el primer elemento sin eliminarlo
+    item = peek_queue()
+    if item is None:
+        return jsonify({'pending': False})
+    else:
+        return jsonify({
+            'pending': True,
+            'filename': item['filename'],
+            'size': len(item['data'])
+        })
+
+
+@app.route('/download_push/<filename>')
+def download_push(filename):
+    """
+    Endpoint para descargar el archivo que está en la cabecera de la cola.
+    Solo permite la descarga si el nombre coincide con el primer elemento de la cola.
+    Si coincide, sirve el archivo y lo elimina de la cola.
+    Si no coincide o la cola está vacía, devuelve 404.
+    """
+    # Intentar consumir el primer elemento si coincide con el nombre
+    item = pop_if_match(filename)
+    if item is None:
+        # No coincide o cola vacía
+        abort(404, description="Archivo no encontrado en la cola")
+    
+    # Construir la respuesta con los datos binarios
+    from flask import Response
+    response = Response(
+        item['data'],
+        mimetype='application/octet-stream',
+        headers={
+            'Content-Disposition': f'attachment; filename="{item["filename"]}"'
+        }
+    )
+    return response
 
 # =============================================================================
 #  (BLOQUE 8: GESTIÓN DE ERRORES Y LOGS - TRANSVERSAL)
 #  - Decoradores @app.errorhandler (si se usan)
 #  - try/except y prints estratégicos dentro de los bloques 3, 5 y 6.
 #  - No tiene una sección fija; se esparce donde sea necesario.
-# =============================================================================
-
-# =============================================================================
-#  BLOQUE 7: ARRANQUE Y PUESTA EN MARCHA (BOOTSTRAPPER)
-#  - if __name__ == "__main__":
-#     1. detect_hotspot_ip()
-#     2. Crear carpetas uploads y outbox
-#     3. Imprimir información en consola
-#     4. app.run(host='0.0.0.0', port=PORT, threaded=False)
-# =============================================================================
-# =============================================================================
-#  BLOQUE 7: ARRANQUE Y PUESTA EN MARCHA (BOOTSTRAPPER)
-#  - if __name__ == "__main__":
-#     1. detect_hotspot_ip()
-#     2. Crear carpetas uploads y outbox
-#     3. Imprimir información en consola
-#     4. app.run(host='0.0.0.0', port=PORT, threaded=False)
 # =============================================================================
 
 # =============================================================================
