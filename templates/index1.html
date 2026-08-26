@@ -187,8 +187,8 @@
         <!-- FORMULARIO DE SUBIDA -->
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="upload-area" id="dropArea">
-                <input type="file" id="fileInput" name="file" multiple required>
-                <label for="fileInput" class="upload-label" id="fileLabel">Seleccionar archivos</label>
+                <input type="file" id="fileInput" name="file" required>
+                <label for="fileInput" class="upload-label" id="fileLabel">Seleccionar archivo</label>
                 <div class="file-name" id="fileName">Ningún archivo seleccionado</div>
             </div>
             <button type="submit" class="btn-submit" id="submitBtn">📤 Enviar a la PC</button>
@@ -254,14 +254,12 @@
                 setStatus('Esperando acción...', 'empty');
             }
 
-            // --- ACTUALIZAR NOMBRE DE ARCHIVOS SELECCIONADOS ---
+            // --- MANEJAR SELECCIÓN DE ARCHIVO ---
             fileInput.addEventListener('change', function(e) {
                 if (this.files && this.files.length > 0) {
-                    const count = this.files.length;
-                    const names = Array.from(this.files).map(f => f.name).join(', ');
-                    const totalSize = Array.from(this.files).reduce((acc, f) => acc + f.size, 0);
-                    const sizeKB = (totalSize / 1024).toFixed(1);
-                    fileName.textContent = `${count} archivo(s): ${names} (${sizeKB} KB total)`;
+                    const file = this.files[0];
+                    const size = (file.size / 1024).toFixed(1);
+                    fileName.textContent = `${file.name} (${size} KB)`;
                     resetStatus();
                 } else {
                     fileName.textContent = 'Ningún archivo seleccionado';
@@ -289,73 +287,53 @@
                 }
             });
 
-            // --- MANEJAR ENVÍO DEL FORMULARIO (MÚLTIPLES ARCHIVOS) ---
-            document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            // --- MANEJAR ENVÍO DEL FORMULARIO ---
+            document.getElementById('uploadForm').addEventListener('submit', function(e) {
                 e.preventDefault();
 
                 if (!fileInput.files || fileInput.files.length === 0) {
-                    setError('Selecciona al menos un archivo.');
+                    setError('Selecciona un archivo primero.');
                     return;
                 }
 
-                const files = fileInput.files;
-                const total = files.length;
-                let successCount = 0;
-                let errorCount = 0;
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
 
-                // Deshabilitar botón y preparar UI
+                // Deshabilitar botón y mostrar carga
                 submitBtn.disabled = true;
-                submitBtn.textContent = `⏳ Subiendo (0/${total})...`;
-                setLoading(`Preparando subida de ${total} archivo(s)...`);
+                submitBtn.textContent = '⏳ Enviando...';
+                setLoading(`Subiendo ${file.name}...`);
 
-                // Subir archivos uno por uno
-                for (let i = 0; i < total; i++) {
-                    const file = files[i];
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    // Actualizar estado
-                    const progressMsg = `📤 Subiendo (${i+1}/${total}): ${file.name}`;
-                    setLoading(progressMsg);
-                    submitBtn.textContent = `⏳ Subiendo (${i+1}/${total})...`;
-
-                    try {
-                        const response = await fetch('/upload', {
-                            method: 'POST',
-                            body: formData
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Error en el servidor');
                         });
-
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.error || 'Error en el servidor');
-                        }
-
-                        const data = await response.json();
-                        if (data.ok) {
-                            successCount++;
-                            showToast(`✅ ${data.filename}`, '📤');
-                        } else {
-                            errorCount++;
-                            showToast(`❌ Error en ${file.name}: ${data.error || 'desconocido'}`, '❌');
-                        }
-                    } catch (err) {
-                        errorCount++;
-                        showToast(`❌ Error en ${file.name}: ${err.message}`, '❌');
                     }
-                }
-
-                // Finalizar
-                fileInput.value = '';
-                fileName.textContent = 'Ningún archivo seleccionado';
-                submitBtn.disabled = false;
-                submitBtn.textContent = '📤 Enviar a la PC';
-
-                // Mostrar resumen
-                if (errorCount === 0) {
-                    setSuccess(`✅ Todos los archivos enviados (${successCount}/${total})`);
-                } else {
-                    setError(`⚠️ ${successCount} enviados, ${errorCount} fallaron`);
-                }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.ok) {
+                        setSuccess(`"${data.filename}" enviado correctamente.`);
+                        // Limpiar input
+                        fileInput.value = '';
+                        fileName.textContent = 'Ningún archivo seleccionado';
+                    } else {
+                        setError(data.error || 'Error desconocido al enviar.');
+                    }
+                })
+                .catch(err => {
+                    setError(err.message || 'Error de conexión. ¿El servidor está activo?');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '📤 Enviar a la PC';
+                });
             });
 
             // --- POLLING (cada 2 segundos) ---

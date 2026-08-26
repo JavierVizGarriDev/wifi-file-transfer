@@ -5,6 +5,7 @@
 #  - Instancia de la aplicación Flask.
 # =============================================================================
 import os
+import qrcode
 import re
 import subprocess
 from pathlib import Path
@@ -121,7 +122,49 @@ def detect_hotspot_ip():
         print(f"❌ Error inesperado al detectar IP: {e}")
         return '127.0.0.1'
 
+
+# =============================================================================
+#  BLOQUE 2.5: GENERADOR DE QR
+#  - Función generate_qr(url) que devuelve bytes de una imagen PNG.
+#  - No tiene efectos colaterales (no guarda en disco, no abre ventanas).
+# =============================================================================
+
+def generate_qr(url):
+    """
+    Genera un código QR a partir de una URL y devuelve los datos binarios
+    de una imagen PNG.
     
+    Args:
+        url (str): La URL que se codificará en el QR (ej. 'http://192.168.137.1:5000')
+    
+    Returns:
+        bytes: Los datos binarios de la imagen PNG, listos para guardar en disco
+               o servir directamente.
+    
+    Raises:
+        Exception: Cualquier error durante la generación (se propaga al caller).
+    """
+    # 1. Crear el objeto QR con configuración básica
+    qr = qrcode.QRCode(
+        version=1,               # Tamaño del QR (1 = 21x21 módulos, suficiente para URLs cortas)
+        error_correction=qrcode.constants.ERROR_CORRECT_L,  # Corrección de errores baja (suficiente)
+        box_size=10,             # Tamaño de cada módulo en píxeles
+        border=4,                # Bordes en módulos
+    )
+    
+    # 2. Añadir los datos (la URL)
+    qr.add_data(url)
+    qr.make(fit=True)
+    
+    # 3. Generar la imagen en memoria (sin tocar disco)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # 4. Convertir la imagen a bytes en formato PNG
+    from io import BytesIO
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    return buffer.getvalue()
+
 # =============================================================================
 #  BLOQUE 3: ORQUESTADOR DE ARCHIVOS (MONITOR DE OUTBOX)
 #  - Función process_outbox()
@@ -325,17 +368,18 @@ def main():
     """Función principal que orquesta el arranque del servidor."""
     # 1. Detectar la IP del Hotspot
     ip = detect_hotspot_ip()
-    
+
     # 2. Crear las carpetas necesarias (si no existen)
     try:
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         os.makedirs(OUTBOX_FOLDER, exist_ok=True)
+        os.makedirs("qr", exist_ok=True)  # <--- NUEVO: carpeta para el QR
     except Exception as e:
         print(f"❌ Error al crear las carpetas: {e}")
         print("   Verifica que tienes permisos de escritura en el directorio.")
         exit(1)
-    
-    # 3. Mostrar información en consola
+
+    # 3. Mostrar información en consola (la IP y el puerto)
     print("=" * 60)
     print("  🚀 SERVIDOR DE TRANSFERENCIA LIGERO (MVP)")
     print("=" * 60)
@@ -345,9 +389,47 @@ def main():
     print(f"📱 El móvil debe abrir la URL desde el navegador")
     print(f"⏹️  Presiona Ctrl+C para detener el servidor")
     print("=" * 60)
-    print("Esperando conexiones...")
-    
-    # 4. Lanzar el servidor Flask
+
+    # --- NUEVO: GENERACIÓN Y APERTURA DEL QR ---
+    # 4. Generar el código QR con la URL completa
+    url = f"http://{ip}:{PORT}"
+    qr_filename = "conexion.png"
+    qr_path = os.path.join("qr", qr_filename)
+
+    try:
+        print("\n📱 Generando código QR...")
+        qr_data = generate_qr(url)  # <--- Función del Bloque 2.5
+
+        # Guardar la imagen en disco
+        with open(qr_path, "wb") as f:
+            f.write(qr_data)
+        print(f"✅ QR guardado en: {os.path.abspath(qr_path)}")
+
+        # Abrir la imagen con el visor predeterminado del sistema
+        try:
+            # En Windows, os.startfile abre con el programa asociado
+            os.startfile(qr_path)
+            print("🖼️  Se ha abierto el QR automáticamente. Escanéalo con el móvil.")
+        except AttributeError:
+            # Fallback para otros sistemas operativos (Linux/macOS)
+            import subprocess
+            try:
+                if os.name == 'posix':
+                    subprocess.Popen(['xdg-open', qr_path])
+                else:
+                    # En caso de que os.startfile no exista (muy raro en Windows)
+                    subprocess.Popen(['start', qr_path], shell=True)
+            except Exception as e2:
+                print(f"⚠️ No se pudo abrir automáticamente la imagen: {e2}")
+                print(f"   Abre manualmente el archivo: {os.path.abspath(qr_path)}")
+
+    except Exception as e:
+        print(f"❌ Error al generar o abrir el QR: {e}")
+        print("   Puedes conectar manualmente usando la URL que se muestra arriba.")
+    # --- FIN DE LA NUEVA SECCIÓN ---
+
+    # 5. Lanzar el servidor Flask
+    print("\nEsperando conexiones...\n")
     app.run(host='0.0.0.0', port=PORT, debug=False, threaded=False)
 
 
