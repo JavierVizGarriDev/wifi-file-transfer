@@ -10,6 +10,7 @@ import re
 import subprocess
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, abort, send_from_directory
+from waitress import serve
 
 # Constantes de carpetas y puerto
 UPLOAD_FOLDER = "uploads"
@@ -430,7 +431,7 @@ def main():
 
     # 5. Lanzar el servidor Flask
     print("\nEsperando conexiones...\n")
-    app.run(host='0.0.0.0', port=PORT, debug=False, threaded=False)
+    serve(app, host='0.0.0.0', port=PORT, threads=4)
 
 
 if __name__ == "__main__":
