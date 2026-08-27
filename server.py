@@ -5,12 +5,15 @@
 #  - Instancia de la aplicación Flask.
 # =============================================================================
 import os
+import ssl
 import qrcode
 import re
 import subprocess
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, abort, send_from_directory
-from waitress import serve
+import asyncio
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
 
 # Constantes de carpetas y puerto
 UPLOAD_FOLDER = "uploads"
@@ -136,7 +139,7 @@ def generate_qr(url):
     de una imagen PNG.
     
     Args:
-        url (str): La URL que se codificará en el QR (ej. 'http://192.168.137.1:5000')
+        url (str): La URL que se codificará en el QR (ej. 'https://192.168.137.1:5000')
     
     Returns:
         bytes: Los datos binarios de la imagen PNG, listos para guardar en disco
@@ -393,7 +396,7 @@ def main():
 
     # --- NUEVO: GENERACIÓN Y APERTURA DEL QR ---
     # 4. Generar el código QR con la URL completa
-    url = f"http://{ip}:{PORT}"
+    url = f"https://{ip}:{PORT}"
     qr_filename = "conexion.png"
     qr_path = os.path.join("qr", qr_filename)
 
@@ -429,10 +432,15 @@ def main():
         print("   Puedes conectar manualmente usando la URL que se muestra arriba.")
     # --- FIN DE LA NUEVA SECCIÓN ---
 
-    # 5. Lanzar el servidor Flask
-    print("\nEsperando conexiones...\n")
-    serve(app, host='0.0.0.0', port=PORT, threads=4)
+    # 5 --- Preparar configuración de Hypercorn ---
+    config = Config()
+    config.bind = [f"0.0.0.0:{PORT}"]
+    config.certfile = "cert.pem"
+    config.keyfile = "key.pem"
 
+    print("\nEsperando conexiones...\n")
+
+    asyncio.run(serve(app, config))
 
 if __name__ == "__main__":
     main()
