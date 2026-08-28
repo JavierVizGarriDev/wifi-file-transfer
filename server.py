@@ -10,7 +10,7 @@ import qrcode
 import re
 import subprocess
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file, abort, send_from_directory
+from flask import Flask, request, jsonify, send_file, abort, send_from_directory, redirect, url_for
 import asyncio
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
@@ -262,6 +262,46 @@ HTML_PAGE = load_html_page()
 def index():
     return send_from_directory('templates', 'index.html')
 
+@app.route('/manifest.json')  
+def manifest():
+    """Sirve el archivo manifest.json para la PWA."""
+    return send_from_directory('templates', 'manifest.json', mimetype='application/json')
+
+@app.route('/share', methods=['POST'])
+def share_file():
+    """
+    Endpoint para recibir archivos compartidos desde otras apps (Web Share Target).
+    Guarda el archivo en UPLOAD_FOLDER y redirige a la página principal con un indicador de éxito/error.
+    """
+    # Verificar que se envió un archivo
+    if 'file' not in request.files:
+        return redirect(url_for('index', share='error'))
+
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(url_for('index', share='error'))
+
+    # Limpiar nombre y guardar
+    safe_filename = os.path.basename(file.filename)
+    base, ext = os.path.splitext(safe_filename)
+    dest_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+    counter = 1
+    while os.path.exists(dest_path):
+        new_name = f"{base}({counter}){ext}"
+        dest_path = os.path.join(UPLOAD_FOLDER, new_name)
+        counter += 1
+
+    try:
+        file.save(dest_path)
+        return redirect(url_for('index', share='ok'))
+    except Exception as e:
+        print(f"Error al guardar archivo compartido: {e}")
+        return redirect(url_for('index', share='error'))
+
+@app.route('/sw.js')
+def service_worker():
+    """Sirve el archivo sw.js para el Service Worker."""
+    return send_from_directory('templates', 'sw.js', mimetype='application/javascript')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

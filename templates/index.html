@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Transferencia Móvil</title>
+    <link rel="manifest" href="/manifest.json">
     <style>
         /* --- RESET Y ESTILOS BASE --- */
         * {
@@ -268,7 +269,7 @@
                 }
             });
 
-            // --- DRAG & DROP (mejora UX) ---
+            // --- DRAG & DROP ---
             dropArea.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 this.style.borderColor = '#3b82f6';
@@ -303,18 +304,15 @@
                 let successCount = 0;
                 let errorCount = 0;
 
-                // Deshabilitar botón y preparar UI
                 submitBtn.disabled = true;
                 submitBtn.textContent = `⏳ Subiendo (0/${total})...`;
                 setLoading(`Preparando subida de ${total} archivo(s)...`);
 
-                // Subir archivos uno por uno
                 for (let i = 0; i < total; i++) {
                     const file = files[i];
                     const formData = new FormData();
                     formData.append('file', file);
 
-                    // Actualizar estado
                     const progressMsg = `📤 Subiendo (${i+1}/${total}): ${file.name}`;
                     setLoading(progressMsg);
                     submitBtn.textContent = `⏳ Subiendo (${i+1}/${total})...`;
@@ -344,13 +342,11 @@
                     }
                 }
 
-                // Finalizar
                 fileInput.value = '';
                 fileName.textContent = 'Ningún archivo seleccionado';
                 submitBtn.disabled = false;
                 submitBtn.textContent = '📤 Enviar a la PC';
 
-                // Mostrar resumen
                 if (errorCount === 0) {
                     setSuccess(`✅ Todos los archivos enviados (${successCount}/${total})`);
                 } else {
@@ -358,7 +354,7 @@
                 }
             });
 
-            // --- POLLING (cada 2 segundos) ---
+            // --- POLLING ---
             let isPolling = false;
 
             function poll() {
@@ -374,23 +370,19 @@
                     })
                     .then(data => {
                         if (data.pending && data.filename) {
-                            // Hay archivo pendiente → iniciar descarga automática
                             const filename = data.filename;
                             showToast(`Recibido: ${filename}`, '📥');
-                            // Iniciar descarga con ventana o enlace
                             const link = document.createElement('a');
                             link.href = `/download_push/${encodeURIComponent(filename)}`;
                             link.download = filename;
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
-                            // Mostrar también en estado brevemente
                             setStatus(`📥 Recibiendo: ${filename}...`, 'info');
                             setTimeout(resetStatus, 4000);
                         }
                     })
                     .catch(err => {
-                        // Fallo silencioso en polling (no molestar al usuario)
                         console.warn('Polling error:', err.message);
                     })
                     .finally(() => {
@@ -398,10 +390,38 @@
                     });
             }
 
-            // --- INICIAR POLLING ---
             setInterval(poll, 2000);
-            // Ejecutar inmediatamente para detectar archivos al cargar la página
             setTimeout(poll, 500);
+
+            // --- REGISTRO DEL SERVICE WORKER ---
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                        console.log('Service Worker registrado con éxito:', registration);
+                    }).catch(function(error) {
+                        console.log('Error al registrar el Service Worker:', error);
+                    });
+                });
+            }
+
+            // --- DETECCIÓN DE PARÁMETRO DE COMPARTIR ---
+            (function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const shareStatus = urlParams.get('share');
+                if (shareStatus === 'ok') {
+                    showToast('✅ Archivo recibido correctamente', '📤');
+                    const cleanUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                    setStatus('✅ Archivo compartido guardado en la PC', 'success');
+                    setTimeout(resetStatus, 5000);
+                } else if (shareStatus === 'error') {
+                    showToast('❌ Error al recibir el archivo', '❌');
+                    const cleanUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                    setStatus('❌ Error al guardar el archivo compartido', 'error');
+                    setTimeout(resetStatus, 5000);
+                }
+            })();
 
         })();
     </script>
