@@ -1,3 +1,15 @@
+# WiFi File Transfer
+
+A lightweight Flask server that lets you transfer files between a PC and mobile devices over a local WiFi network — no internet, no USB cable required.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-20%20passing-brightgreen.svg)](#tests)
+
+> 🇬🇧 English · 🇪🇸 [Versión en español](README.es.md)
+
+---
+
 ## 📖 Overview
 
 **WiFi File Transfer** solves a simple but annoying problem: moving files between a PC and a phone when there's no internet, no USB cable, and no cloud service available.
