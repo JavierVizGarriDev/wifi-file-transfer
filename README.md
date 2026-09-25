@@ -14,7 +14,9 @@ Originally built for a workplace environment where traditional transfer methods 
 |---|---|---|
 | ![Ready](screenshots/mobile-ui-idle.png) | ![Uploading](screenshots/mobile-ui-uploading.png) | ![Complete](screenshots/mobile-ui-success.png) |
 
-![Console startup](screenshots/console-startup.png)
+| Generated QR code | Server console |
+|---|---|
+| ![QR example](screenshots/qr-example.png) | ![Console startup](screenshots/console-startup.png) |
 
 *The server console showing the detected IP, the generated QR code, and the polling activity from the phone.*
 
