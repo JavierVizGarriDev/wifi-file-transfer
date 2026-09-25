@@ -20,6 +20,20 @@ Originalmente creado para un entorno de trabajo donde los métodos tradicionales
 
 ---
 
+## 📸 Capturas
+
+| Listo para enviar | Subiendo | Completado |
+|---|---|---|
+| ![Listo](screenshots/mobile-ui-idle.png) | ![Subiendo](screenshots/mobile-ui-uploading.png) | ![Completado](screenshots/mobile-ui-success.png) |
+
+| Código QR generado | Consola del servidor |
+|---|---|
+| ![Ejemplo de QR](screenshots/qr-example.png) | ![Arranque de la consola](screenshots/console-startup.png) |
+
+*La consola del servidor mostrando la IP detectada, el código QR generado y la actividad de polling del teléfono.*
+
+---
+
 ## ✨ Características
 
 - 📷 **Generación automática de QR** — Al arrancar, el servidor genera un código QR con la URL de conexión y lo abre automáticamente. Solo hay que escanearlo con el teléfono.
