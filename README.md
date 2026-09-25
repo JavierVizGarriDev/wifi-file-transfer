@@ -20,9 +20,14 @@ Originally built for a workplace environment where traditional transfer methods 
 
 ---
 
+| Ready to send | Uploading | Complete |
+|---|---|---|
+| ![Ready](screenshots/mobile-ui-idle.png) | ![Uploading](screenshots/mobile-ui-uploading.png) | ![Complete](screenshots/mobile-ui-success.png) |
+
 ## ✨ Features
 
-- 📷 **QR code auto-generation** — On startup, the server generates a QR code with the connection URL and opens it automatically. Just scan it with your phone.
+- 📷 **QR code auto-generation** — On startup, the server generates a QR code with the connection URL and opens it automatically. Just scan it with your phone. ![Console startup](screenshots/console-startup.png)
+*The server console showing the detected IP, the generated QR code, and the polling activity from the phone.*
 - 📤 **Mobile → PC** — Upload one or multiple files from the phone's browser directly to the PC.
 - 📥 **PC → Mobile** — Drop files into the `outbox/` folder and they are pushed to the phone automatically via polling.
 - 📱 **Mobile-first UI** — Responsive, no frameworks, no external CDNs. Loads instantly.
