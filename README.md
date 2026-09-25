@@ -1,15 +1,3 @@
-# WiFi File Transfer
-
-A lightweight Flask server that lets you transfer files between a PC and mobile devices over a local WiFi network — no internet, no USB cable required.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-20%20passing-brightgreen.svg)](#tests)
-
-> 🇬🇧 English · 🇪🇸 [Versión en español](README.es.md)
-
----
-
 ## 📖 Overview
 
 **WiFi File Transfer** solves a simple but annoying problem: moving files between a PC and a phone when there's no internet, no USB cable, and no cloud service available.
@@ -20,14 +8,21 @@ Originally built for a workplace environment where traditional transfer methods 
 
 ---
 
+## 📸 Screenshots
+
 | Ready to send | Uploading | Complete |
 |---|---|---|
 | ![Ready](screenshots/mobile-ui-idle.png) | ![Uploading](screenshots/mobile-ui-uploading.png) | ![Complete](screenshots/mobile-ui-success.png) |
 
+![Console startup](screenshots/console-startup.png)
+
+*The server console showing the detected IP, the generated QR code, and the polling activity from the phone.*
+
+---
+
 ## ✨ Features
 
-- 📷 **QR code auto-generation** — On startup, the server generates a QR code with the connection URL and opens it automatically. Just scan it with your phone. ![Console startup](screenshots/console-startup.png) ![QR](screenshots/qr-example.png)
-*The server console showing the detected IP, the generated QR code, and the polling activity from the phone.*
+- 📷 **QR code auto-generation** — On startup, the server generates a QR code with the connection URL and opens it automatically. Just scan it with your phone.
 - 📤 **Mobile → PC** — Upload one or multiple files from the phone's browser directly to the PC.
 - 📥 **PC → Mobile** — Drop files into the `outbox/` folder and they are pushed to the phone automatically via polling.
 - 📱 **Mobile-first UI** — Responsive, no frameworks, no external CDNs. Loads instantly.
