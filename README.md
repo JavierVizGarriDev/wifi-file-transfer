@@ -26,7 +26,7 @@ Originally built for a workplace environment where traditional transfer methods 
 
 ## ✨ Features
 
-- 📷 **QR code auto-generation** — On startup, the server generates a QR code with the connection URL and opens it automatically. Just scan it with your phone. ![Console startup](screenshots/console-startup.png)
+- 📷 **QR code auto-generation** — On startup, the server generates a QR code with the connection URL and opens it automatically. Just scan it with your phone. ![Console startup](screenshots/console-startup.png) ![QR](screenshots/qr-example.png)
 *The server console showing the detected IP, the generated QR code, and the polling activity from the phone.*
 - 📤 **Mobile → PC** — Upload one or multiple files from the phone's browser directly to the PC.
 - 📥 **PC → Mobile** — Drop files into the `outbox/` folder and they are pushed to the phone automatically via polling.
