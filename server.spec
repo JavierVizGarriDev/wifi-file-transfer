@@ -46,7 +46,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='servidor',  # Nombre del ejecutable (sin .exe)
+    name='wifi-file-transfer',  # Nombre del ejecutable (sin .exe)
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
